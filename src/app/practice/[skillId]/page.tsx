@@ -188,9 +188,9 @@ export default function PracticeSessionPage() {
         if (toneModule.current === null) {
             toneModule.current = await import('tone');
         }
-        const { start, PolySynth, Synth } = toneModule.current;
-        await start();
-        synth.current = new PolySynth(Synth).toDestination();
+        const Tone = toneModule.current;
+        await Tone.start();
+        synth.current = new Tone.PolySynth(Tone.Synth).toDestination();
     }
     initAudio();
 
@@ -213,9 +213,10 @@ export default function PracticeSessionPage() {
 
       if (completed && correctCount >= 18) {
           if (toneModule.current && synth.current) {
-            const { now } = toneModule.current;
-            synth.current?.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n", now());
-            synth.current?.triggerAttackRelease(["E4", "G4", "C5", "E5"], "4n", now() + 0.2);
+            const Tone = toneModule.current;
+            const now = Tone.now();
+            synth.current?.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n", now);
+            synth.current?.triggerAttackRelease(["E4", "G4", "C5", "E5"], "4n", now + 0.2);
           }
 
           if (db && userId && (!bestTime || timeElapsed < bestTime)) {
