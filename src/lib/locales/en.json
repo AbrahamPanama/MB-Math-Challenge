@@ -47,9 +47,22 @@
   },
   "practice": {
     "title": "Practice Mode",
+    "smartPracticeTitle": "Smart Practice",
+    "selectSkill": "Choose a skill to practice",
+    "startPractice": "Start Practice",
     "constructionTitle": "Practice Arena Under Construction!",
     "constructionSubtitle": "This is where the magic will happen. Get ready for some math challenges!",
-    "backToDashboard": "Back to Dashboard"
+    "dailyMissionConstruction": "Daily Mission is coming soon. Check back later!",
+    "backToDashboard": "Back to Dashboard",
+    "loadingProblem": "Loading a new challenge...",
+    "checkAnswer": "Check Answer",
+    "checking": "Checking...",
+    "nextQuestion": "Next Question",
+    "correct": "Correct!",
+    "incorrect": "Not quite, but good try!",
+    "correctAnswerIs": "The correct answer is {correctAnswer}.",
+    "showHint": "Need a hint?",
+    "finalAnswer": "Your final answer"
   },
   "practiceModes": {
     "smartPractice": {

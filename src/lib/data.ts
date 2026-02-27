@@ -59,20 +59,20 @@ export const practiceModes: PracticeMode[] = [
         titleKey: 'practiceModes.smartPractice.title',
         descriptionKey: 'practiceModes.smartPractice.description',
         icon: Sparkles,
-        href: '/practice'
+        href: '/practice?mode=smart-practice'
     },
     {
         id: 'daily-mission',
         titleKey: 'practiceModes.dailyMission.title',
         descriptionKey: 'practiceModes.dailyMission.description',
         icon: CalendarCheck,
-        href: '/practice'
+        href: '/practice?mode=daily-mission'
     },
     {
         id: 'unit-boss',
         titleKey: 'practiceModes.unitBoss.title',
         descriptionKey: 'practiceModes.unitBoss.description',
         icon: ShieldCheck,
-        href: '/practice'
+        href: '/practice?mode=unit-boss'
     }
 ]

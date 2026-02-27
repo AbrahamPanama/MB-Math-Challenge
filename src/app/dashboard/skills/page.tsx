@@ -56,7 +56,7 @@ export default function SkillsPage() {
               </CardContent>
               <CardFooter>
                  <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                  <Link href="/practice">
+                  <Link href={`/practice/${skill.id}`}>
                     {t('skills.practiceNow')} <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>

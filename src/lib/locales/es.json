@@ -47,9 +47,22 @@
   },
   "practice": {
     "title": "Modo Práctica",
+    "smartPracticeTitle": "Práctica Inteligente",
+    "selectSkill": "Elige una habilidad para practicar",
+    "startPractice": "Empezar a Practicar",
     "constructionTitle": "¡Arena de Práctica en Construcción!",
     "constructionSubtitle": "Aquí es donde ocurrirá la magia. ¡Prepárate para algunos desafíos matemáticos!",
-    "backToDashboard": "Volver al Tablero"
+    "dailyMissionConstruction": "La Misión Diaria llegará pronto. ¡Vuelve más tarde!",
+    "backToDashboard": "Volver al Tablero",
+    "loadingProblem": "Cargando un nuevo reto...",
+    "checkAnswer": "Comprobar",
+    "checking": "Comprobando...",
+    "nextQuestion": "Siguiente Pregunta",
+    "correct": "¡Correcto!",
+    "incorrect": "¡No del todo, pero buen intento!",
+    "correctAnswerIs": "La respuesta correcta es {correctAnswer}.",
+    "showHint": "¿Necesitas una pista?",
+    "finalAnswer": "Tu respuesta final"
   },
   "practiceModes": {
     "smartPractice": {
