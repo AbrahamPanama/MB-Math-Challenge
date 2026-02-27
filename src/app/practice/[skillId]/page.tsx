@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import * as Tone from 'tone';
+import { PolySynth, Synth, now, start } from 'tone';
 import type { Category, Problem } from '@/lib/types';
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth } from 'firebase/auth';
@@ -137,7 +137,7 @@ export default function PracticeSessionPage({ params }: { params: { skillId: Cat
   const [wasCompleted, setWasCompleted] = useState(false);
 
   // Audio
-  const synth = useRef<Tone.PolySynth | null>(null);
+  const synth = useRef<PolySynth | null>(null);
   
   // Firebase
   const [userId, setUserId] = useState<string | null>(null);
@@ -183,8 +183,8 @@ export default function PracticeSessionPage({ params }: { params: { skillId: Cat
     
     // Init Audio
     const initAudio = async () => {
-        await Tone.start();
-        synth.current = new Tone.PolySynth(Tone.Synth).toDestination();
+        await start();
+        synth.current = new PolySynth(Synth).toDestination();
     }
     initAudio();
 
@@ -206,8 +206,8 @@ export default function PracticeSessionPage({ params }: { params: { skillId: Cat
       setScreen('result');
 
       if (completed && correctCount >= 18) {
-          synth.current?.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n", Tone.now());
-          synth.current?.triggerAttackRelease(["E4", "G4", "C5", "E5"], "4n", Tone.now() + 0.2);
+          synth.current?.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n", now());
+          synth.current?.triggerAttackRelease(["E4", "G4", "C5", "E5"], "4n", now() + 0.2);
 
           if (db && userId && (!bestTime || timeElapsed < bestTime)) {
               const docRef = doc(db, `artifacts/math-master-hard-numbers/users/${userId}/stats/main`);
@@ -368,3 +368,4 @@ export default function PracticeSessionPage({ params }: { params: { skillId: Cat
     </div>
   );
 }
+    
