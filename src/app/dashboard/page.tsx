@@ -11,7 +11,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { mockUser, practiceModes, mockSkills } from '@/lib/data';
-import { Header } from '@/components/layout/header';
 import { Progress } from '@/components/ui/progress';
 import { useLanguage } from '@/context/language-context';
 
@@ -20,7 +19,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <Header title={t('dashboard.title')} />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
           {t('dashboard.welcome', { name: mockUser.name })}
