@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { PolySynth, Synth, now, start } from 'tone';
 import type { Category, Problem } from '@/lib/types';
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth } from 'firebase/auth';
@@ -137,7 +136,8 @@ export default function PracticeSessionPage({ params }: { params: { skillId: Cat
   const [wasCompleted, setWasCompleted] = useState(false);
 
   // Audio
-  const synth = useRef<PolySynth | null>(null);
+  const toneModule = useRef<typeof import('tone') | null>(null);
+  const synth = useRef<any | null>(null);
   
   // Firebase
   const [userId, setUserId] = useState<string | null>(null);
@@ -183,6 +183,10 @@ export default function PracticeSessionPage({ params }: { params: { skillId: Cat
     
     // Init Audio
     const initAudio = async () => {
+        if (toneModule.current === null) {
+            toneModule.current = await import('tone');
+        }
+        const { start, PolySynth, Synth } = toneModule.current;
         await start();
         synth.current = new PolySynth(Synth).toDestination();
     }
@@ -206,8 +210,11 @@ export default function PracticeSessionPage({ params }: { params: { skillId: Cat
       setScreen('result');
 
       if (completed && correctCount >= 18) {
-          synth.current?.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n", now());
-          synth.current?.triggerAttackRelease(["E4", "G4", "C5", "E5"], "4n", now() + 0.2);
+          if (toneModule.current && synth.current) {
+            const { now } = toneModule.current;
+            synth.current?.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n", now());
+            synth.current?.triggerAttackRelease(["E4", "G4", "C5", "E5"], "4n", now() + 0.2);
+          }
 
           if (db && userId && (!bestTime || timeElapsed < bestTime)) {
               const docRef = doc(db, `artifacts/math-master-hard-numbers/users/${userId}/stats/main`);
