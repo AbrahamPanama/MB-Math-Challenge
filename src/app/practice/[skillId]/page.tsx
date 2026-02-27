@@ -111,9 +111,8 @@ const generateProblem = (category: Category, questionIndex: number): Problem => 
 };
 
 
-export default function PracticeSessionPage({ params }: { params: { skillId: Category } }) {
+export default function PracticeSessionPage({ params: { skillId: category } }: { params: { skillId: Category } }) {
   const router = useRouter();
-  const category = params.skillId;
   
   const [screen, setScreen] = useState<GameScreen>('game');
   const [correctCount, setCorrectCount] = useState(0);
