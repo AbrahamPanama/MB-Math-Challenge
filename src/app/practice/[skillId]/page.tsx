@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import type { Category, Problem } from '@/lib/types';
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth } from 'firebase/auth';
@@ -111,8 +111,10 @@ const generateProblem = (category: Category, questionIndex: number): Problem => 
 };
 
 
-export default function PracticeSessionPage({ params: { skillId: category } }: { params: { skillId: Category } }) {
+export default function PracticeSessionPage() {
   const router = useRouter();
+  const params = useParams();
+  const category = params.skillId as Category;
   
   const [screen, setScreen] = useState<GameScreen>('game');
   const [correctCount, setCorrectCount] = useState(0);
@@ -135,7 +137,7 @@ export default function PracticeSessionPage({ params: { skillId: category } }: {
   const [wasCompleted, setWasCompleted] = useState(false);
 
   // Audio
-  const toneModule = useRef<typeof import('tone') | null>(null);
+  const toneModule = useRef<any | null>(null);
   const synth = useRef<any | null>(null);
   
   // Firebase
@@ -160,6 +162,7 @@ export default function PracticeSessionPage({ params: { skillId: category } }: {
 
 
   const startNewGame = useCallback(() => {
+    if (!category) return;
     const timeLimits: Record<Category, number> = { multiplication: 120, addition: 90, divisibility: 90 };
     const newMaxTime = timeLimits[category] || 90;
     
@@ -232,7 +235,7 @@ export default function PracticeSessionPage({ params: { skillId: category } }: {
   }, [timeLeft, endGame]);
 
   const handleChoice = (userVal: string | number | boolean) => {
-    if (screen !== 'game') return;
+    if (screen !== 'game' || !category) return;
 
     const isCorrect = userVal === currentProblem?.ans;
     setFeedback({ text: isCorrect ? '¡EXCELENTE!' : 'INCORRECTO', correct: isCorrect });
@@ -260,7 +263,7 @@ export default function PracticeSessionPage({ params: { skillId: category } }: {
     }, 500);
   };
   
-  if (!currentProblem) {
+  if (!currentProblem || !category) {
     return null; // or a loading state
   }
   
