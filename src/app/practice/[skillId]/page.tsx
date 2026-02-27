@@ -1,257 +1,370 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Balancer } from 'react-wrap-balancer';
-import {
-  generateSmartPracticeProblem,
-  type SmartPracticeProblemGenerationOutput,
-} from '@/ai/flows/smart-practice-problem-generation';
-import {
-  correctiveFeedbackExplanation,
-  type CorrectiveFeedbackExplanationOutput,
-} from '@/ai/flows/corrective-feedback-explanation';
-import {
-  generateProgressiveHint,
-  type ProgressiveHintOutput,
-} from '@/ai/flows/progressive-hint-generation';
-import { mockSkills } from '@/lib/data';
-import { useLanguage } from '@/context/language-context';
-import { Header } from '@/components/layout/header';
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Lightbulb, CheckCircle2, XCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import type { Skill } from '@/lib/types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import * as Tone from 'tone';
+import type { Category, Problem } from '@/lib/types';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged, type Auth } from 'firebase/auth';
+import { getFirestore, doc, setDoc, onSnapshot, updateDoc, type Firestore } from 'firebase/firestore';
 
-export default function PracticeSessionPage({
-  params: { skillId },
-}: {
-  params: { skillId: Skill['id'] };
-}) {
-  const { t } = useLanguage();
-  const { toast } = useToast();
+// --- Firebase Config ---
+const firebaseConfig = {
+  // apiKey: "...",
+  // authDomain: "...",
+  // projectId: "...",
+};
 
-  const [problem, setProblem] =
-    useState<SmartPracticeProblemGenerationOutput | null>(null);
-  const [userAnswer, setUserAnswer] = useState('');
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [feedback, setFeedback] =
-    useState<CorrectiveFeedbackExplanationOutput | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isChecking, setIsChecking] = useState(false);
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (e) {
+  console.warn("Firebase no configurado.");
+}
+// --------------------
 
-  const [hint, setHint] = useState<ProgressiveHintOutput | null>(null);
-  const [hintLevel, setHintLevel] = useState(1);
-  const [isHintLoading, setIsHintLoading] = useState(false);
+type GameScreen = 'game' | 'result';
 
-  const skill = useMemo(
-    () => mockSkills.find((s) => s.id === skillId),
-    [skillId]
-  );
-
-  const getNewProblem = async () => {
-    setIsLoading(true);
-    setProblem(null);
-    setUserAnswer('');
-    setIsCorrect(null);
-    setFeedback(null);
-    setHint(null);
-    setHintLevel(1);
-
-    if (!skill) return;
-
-    try {
-      const newProblem = await generateSmartPracticeProblem({
-        skillArea: skill.id,
-        level: 'L1', // This can be made dynamic based on user progress later
-      });
-      setProblem(newProblem);
-    } catch (error) {
-      console.error('Error generating problem:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not load a new problem. Please try again.',
-      });
-    } finally {
-      setIsLoading(false);
+// --- Game Logic ---
+const generateOptions = (correctAnswer: Problem['ans'], type: string): (string | number | boolean)[] => {
+  if (typeof correctAnswer === 'boolean') return [true, false];
+  let options: (string | number | boolean)[] = [correctAnswer];
+  let attempts = 0;
+  while (options.length < 5 && attempts < 50) {
+    attempts++;
+    let decoy: string | number | undefined;
+    if (type === 'reverse-mult') {
+      const parts = (correctAnswer as string).split(' × ');
+      const targetVal = parseInt(parts[0]) * parseInt(parts[1]);
+      let a = Math.floor(Math.random() * 11) + 2;
+      let b = Math.floor(Math.random() * 11) + 2;
+      let decoyStr = `${a} × ${b}`;
+      let decoyVal = a * b;
+      if (!options.includes(decoyStr) && Math.abs(decoyVal - targetVal) <= 15 && decoyVal !== targetVal) {
+        decoy = decoyStr;
+      }
+    } else {
+      let diff = (Math.floor(Math.random() * 5) + 1) * (Math.random() > 0.5 ? 1 : -1);
+      decoy = (correctAnswer as number) + diff;
     }
-  };
+    if (decoy !== undefined && (typeof decoy !== 'number' || decoy > 0) && !options.includes(decoy)) {
+      options.push(decoy);
+    }
+  }
+  return options.sort(() => Math.random() - 0.5);
+};
+
+const generateProblem = (category: Category, questionIndex: number): Problem => {
+    let p: Problem = { text: '', ans: null, type: 'standard' };
+    const hardNumbers = [6, 7, 8, 9, 12];
+
+    if (category === 'multiplication') {
+        const isReverse = (questionIndex >= 10 && Math.random() > (questionIndex >= 15 ? 0.2 : 0.5));
+        let a, b;
+        if (questionIndex < 5) {
+            a = Math.floor(Math.random() * 9) + 2;
+            b = Math.floor(Math.random() * 9) + 2;
+        } else if (questionIndex < 15) {
+            a = hardNumbers[Math.floor(Math.random() * hardNumbers.length)];
+            b = Math.floor(Math.random() * 11) + 2;
+        } else {
+            a = hardNumbers[Math.floor(Math.random() * hardNumbers.length)];
+            b = hardNumbers[Math.floor(Math.random() * hardNumbers.length)];
+        }
+        if (isReverse) {
+            const result = a * b;
+            p.text = `<span class="text-indigo-600 font-bold mr-2">${result}</span> =`;
+            p.ans = `${a} × ${b}`;
+            p.type = 'reverse-mult';
+        } else {
+            p.text = `${a} × ${b}`;
+            p.ans = a * b;
+            p.type = 'standard';
+        }
+    } else if (category === 'addition') {
+        let a, b;
+        if (questionIndex < 5) {
+            a = Math.floor(Math.random() * 40) + 10;
+            b = Math.floor(Math.random() * 40) + 10;
+        } else {
+            const ends = [7, 8, 9];
+            a = (Math.floor(Math.random() * 8) * 10) + ends[Math.floor(Math.random() * 3)];
+            b = (Math.floor(Math.random() * 8) * 10) + ends[Math.floor(Math.random() * 3)];
+        }
+        p.text = `${a} + ${b}`;
+        p.ans = a + b;
+    } else if (category === 'divisibility') {
+        let divisor: number;
+        if (questionIndex < 8) divisor = [2, 5, 10][Math.floor(Math.random() * 3)];
+        else divisor = [3, 9][Math.floor(Math.random() * 2)];
+
+        const base = Math.floor(Math.random() * 50) + 10;
+        const isDiv = Math.random() > 0.5;
+        const num = isDiv ? base * divisor : (base * divisor) + (Math.floor(Math.random() * (divisor - 1)) + 1);
+        p.text = `<span class="text-slate-500 text-4xl align-middle mr-2">¿</span>${num} ÷ ${divisor}<span class="text-slate-500 text-4xl align-middle ml-2">?</span>`;
+        p.ans = (num % divisor === 0);
+    }
+    return p;
+};
+
+
+export default function PracticeSessionPage({ params }: { params: { skillId: Category } }) {
+  const router = useRouter();
+  const category = params.skillId;
+  
+  const [screen, setScreen] = useState<GameScreen>('game');
+  const [correctCount, setCorrectCount] = useState(0);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const totalQuestions = 20;
+  
+  const [currentProblem, setCurrentProblem] = useState<Problem | null>(null);
+  const [options, setOptions] = useState<(string|number|boolean)[]>([]);
+  const [feedback, setFeedback] = useState<{text: string; correct: boolean} | null>(null);
+  const [isShaking, setIsShaking] = useState(false);
+  
+  // Timer state
+  const [maxTime, setMaxTime] = useState(90);
+  const [timeLeft, setTimeLeft] = useState(90);
+  const timerInterval = useRef<NodeJS.Timeout | null>(null);
+  const startTime = useRef<number>(0);
+  
+  // Result state
+  const [finalTime, setFinalTime] = useState(0);
+  const [wasCompleted, setWasCompleted] = useState(false);
+
+  // Audio
+  const synth = useRef<Tone.PolySynth | null>(null);
+  
+  // Firebase
+  const [userId, setUserId] = useState<string | null>(null);
+  const [bestTime, setBestTime] = useState<number | null>(null);
 
   useEffect(() => {
-    getNewProblem();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skill]);
+    if (!auth) return;
+    signInAnonymously(auth).catch((error) => console.error("Auth error:", error));
+    const unsubAuth = onAuthStateChanged(auth, user => user && setUserId(user.uid));
+    return () => unsubAuth();
+  }, []);
 
-  const handleCheckAnswer = async () => {
-    if (!problem) return;
-    setIsChecking(true);
-    const isAnswerCorrect = userAnswer.trim() === problem.correctAnswer;
-    setIsCorrect(isAnswerCorrect);
+  useEffect(() => {
+      if (!db || !userId) return;
+      const docPath = `artifacts/math-master-hard-numbers/users/${userId}/stats/main`;
+      const unsubDb = onSnapshot(doc(db, docPath), (docSnap) => {
+          if (docSnap.exists()) setBestTime(docSnap.data().bestTime || null);
+      });
+      return () => unsubDb();
+  }, [userId]);
 
-    if (!isAnswerCorrect) {
-      try {
-        const explanation = await correctiveFeedbackExplanation({
-          problem: problem.question,
-          childAnswer: userAnswer,
-          correctAnswer: problem.correctAnswer,
-          skillArea: skill?.id || 'general',
-        });
-        setFeedback(explanation);
-      } catch (error) {
-        console.error('Error getting feedback:', error);
+
+  const startNewGame = useCallback(() => {
+    const timeLimits: Record<Category, number> = { multiplication: 120, addition: 90, divisibility: 90 };
+    const newMaxTime = timeLimits[category] || 90;
+    
+    setScreen('game');
+    setCorrectCount(0);
+    setQuestionIndex(0);
+    setMaxTime(newMaxTime);
+    setTimeLeft(newMaxTime);
+    setFeedback(null);
+    
+    const problem = generateProblem(category, 0);
+    setCurrentProblem(problem);
+    setOptions(generateOptions(problem.ans, problem.type));
+    
+    startTime.current = Date.now();
+    if (timerInterval.current) clearInterval(timerInterval.current);
+    timerInterval.current = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+    
+    // Init Audio
+    const initAudio = async () => {
+        await Tone.start();
+        synth.current = new Tone.PolySynth(Tone.Synth).toDestination();
+    }
+    initAudio();
+
+  }, [category]);
+  
+  useEffect(() => {
+    startNewGame();
+    return () => {
+      if (timerInterval.current) clearInterval(timerInterval.current);
+    };
+  }, [startNewGame]);
+
+  const endGame = useCallback((completed: boolean) => {
+      if (timerInterval.current) clearInterval(timerInterval.current);
+      const timeElapsed = (Date.now() - startTime.current) / 1000;
+      
+      setFinalTime(timeElapsed);
+      setWasCompleted(completed);
+      setScreen('result');
+
+      if (completed && correctCount >= 18) {
+          synth.current?.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n", Tone.now());
+          synth.current?.triggerAttackRelease(["E4", "G4", "C5", "E5"], "4n", Tone.now() + 0.2);
+
+          if (db && userId && (!bestTime || timeElapsed < bestTime)) {
+              const docRef = doc(db, `artifacts/math-master-hard-numbers/users/${userId}/stats/main`);
+              updateDoc(docRef, { bestTime: timeElapsed }).catch(() => {
+                  setDoc(docRef, { bestTime: timeElapsed });
+              });
+          }
       }
-    }
-    setIsChecking(false);
-  };
+  }, [correctCount, bestTime, userId]);
 
-  const handleGetHint = async () => {
-    if (!problem || hintLevel > 3) return;
-    setIsHintLoading(true);
-    try {
-      const newHint = await generateProgressiveHint({
-        problem: problem.question,
-        hintLevel: hintLevel as 1 | 2 | 3,
-        incorrectAnswer: isCorrect === false ? userAnswer : undefined,
-      });
-      setHint(newHint);
-      setHintLevel((prev) => prev + 1);
-    } catch (error) {
-      console.error('Error getting hint:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not load a hint. Please try again.',
-      });
-    } finally {
-      setIsHintLoading(false);
-    }
-  };
 
-  if (!skill) {
-    return (
-      <div>
-        <Header title="Error" />
-        <main className="p-4">Skill not found.</main>
-      </div>
-    );
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      endGame(false);
+    }
+  }, [timeLeft, endGame]);
+
+  const handleChoice = (userVal: string | number | boolean) => {
+    if (screen !== 'game') return;
+
+    const isCorrect = userVal === currentProblem?.ans;
+    setFeedback({ text: isCorrect ? '¡EXCELENTE!' : 'INCORRECTO', correct: isCorrect });
+    
+    if (isCorrect) {
+      setCorrectCount(prev => prev + 1);
+      synth.current?.triggerAttackRelease(["C5", "E5"], "16n");
+    } else {
+      synth.current?.triggerAttackRelease("G2", "8n");
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 300);
+    }
+
+    setTimeout(() => {
+      const nextIndex = questionIndex + 1;
+      if (nextIndex >= totalQuestions) {
+        endGame(true);
+      } else {
+        setQuestionIndex(nextIndex);
+        const nextProblem = generateProblem(category, nextIndex);
+        setCurrentProblem(nextProblem);
+        setOptions(generateOptions(nextProblem.ans, nextProblem.type));
+        setFeedback(null);
+      }
+    }, 500);
+  };
+  
+  if (!currentProblem) {
+    return null; // or a loading state
   }
-
+  
+  const timeBarPercent = (timeLeft / maxTime) * 100;
+  
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <Header
-        title={`${t('practice.smartPracticeTitle')}: ${t(skill.nameKey)}`}
-      />
-      <main className="flex flex-1 items-center justify-center p-4">
-        <Card className="w-full max-w-2xl shadow-2xl">
-          <CardHeader>
-            <CardTitle className="text-center font-headline text-3xl md:text-4xl">
-              {isLoading ? (
-                <Skeleton className="mx-auto h-10 w-3/4" />
-              ) : (
-                <Balancer>{problem?.question}</Balancer>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {isLoading ? (
-              <div className="space-y-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="mx-auto h-10 w-1/2" />
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-center">
-                  <Input
-                    id="answer"
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
-                    placeholder={t('practice.finalAnswer')}
-                    className="h-14 max-w-xs text-center text-2xl"
-                    disabled={isCorrect !== null}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && userAnswer) {
-                        handleCheckAnswer();
-                      }
-                    }}
-                  />
+    <div id="app" className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-slate-100 relative">
+        <div className={`bg-indigo-600 p-6 text-white transition-colors duration-500 relative overflow-hidden`} id="header-bg">
+            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+            <div className="flex justify-between items-center mb-6 relative z-10">
+                <h1 className="text-xl font-bold tracking-tight">{category.charAt(0).toUpperCase() + category.slice(1)}</h1>
+            </div>
+            <div className="grid grid-cols-2 gap-3 relative z-10">
+                <div className="text-center bg-indigo-700/50 backdrop-blur-md p-3 rounded-2xl border border-indigo-500/30">
+                    <p className="text-indigo-200 text-[9px] uppercase font-bold tracking-widest mb-1">ACIERTOS</p>
+                    <p id="score" className="text-2xl font-black tabular-nums">{correctCount} / {totalQuestions}</p>
                 </div>
+                <div className="text-center bg-indigo-700/50 backdrop-blur-md p-3 rounded-2xl border border-indigo-500/30">
+                    <p className="text-indigo-200 text-[9px] uppercase font-bold tracking-widest mb-1">MEJOR TIEMPO</p>
+                    <p id="best-time" className="text-2xl font-black tabular-nums">{bestTime ? `${bestTime.toFixed(1)}s` : '--:--'}</p>
+                </div>
+            </div>
+        </div>
 
-                {isCorrect !== null && (
-                  <Alert
-                    variant={isCorrect ? 'default' : 'destructive'}
-                    className={isCorrect ? 'border-green-600/50 bg-green-50 text-green-900' : ''}
-                  >
-                    {isCorrect ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <XCircle className="h-4 w-4" />
+        <div id="screen-container" className="p-6">
+            {screen === 'game' && (
+                <div id="game-screen">
+                    <div className="flex flex-col items-center mb-8">
+                        <div className="w-full bg-slate-100 h-2.5 rounded-full mb-3 overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-1000 ease-linear ${timeLeft <=10 ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${timeBarPercent}%` }}></div>
+                        </div>
+                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
+                            <span className="text-lg">⏱</span>
+                            <span className={`font-mono font-bold text-xl tabular-nums ${timeLeft <= 10 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}>{timeLeft}</span>
+                        </div>
+                    </div>
+
+                    <div className="text-center mb-8 min-h-[140px] flex flex-col justify-center">
+                        <div
+                            id="problem-text"
+                            className={`text-6xl font-black text-slate-800 tracking-tight leading-none mb-2 transition-all animate-pop ${isShaking ? 'animate-shake': ''}`}
+                            dangerouslySetInnerHTML={{ __html: currentProblem.text }}
+                        ></div>
+                        <p id="progress-text" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">PREGUNTA {questionIndex + 1} DE {totalQuestions}</p>
+                    </div>
+                    
+                    <div id="choice-container" className={`grid gap-3 mb-6 ${category === 'divisibility' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                        {options.map((opt, i) => {
+                            const isBool = typeof opt === 'boolean';
+                            return (
+                                <button
+                                    key={i}
+                                    onClick={() => handleChoice(opt)}
+                                    className={`choice-btn w-full p-4 rounded-xl font-bold text-xl shadow-sm border-2 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none ${
+                                        isBool
+                                        ? opt
+                                            ? "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 py-6 text-2xl"
+                                            : "bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100 hover:border-rose-200 py-6 text-2xl"
+                                        : "bg-white text-slate-600 border-slate-100 hover:border-indigo-500 hover:text-indigo-600 hover:shadow-md"
+                                    }`}
+                                    disabled={!!feedback}
+                                >
+                                    {isBool ? (opt ? 'SÍ' : 'NO') : opt}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    
+                    {feedback && (
+                      <div className={`text-center h-6 font-bold text-sm tracking-wide transition-all opacity-100 transform-none ${feedback.correct ? 'text-emerald-500' : 'text-rose-500'}`}>
+                          {feedback.text}
+                      </div>
                     )}
-                    <AlertTitle className={isCorrect ? 'text-green-800' : ''}>
-                      {isCorrect ? t('practice.correct') : t('practice.incorrect')}
-                    </AlertTitle>
-                    <AlertDescription>
-                      {!isCorrect && (
-                        <p className="mb-2">
-                          {t('practice.correctAnswerIs', {
-                            correctAnswer: problem?.correctAnswer,
-                          })}
-                        </p>
-                      )}
-                      {feedback && <p>{feedback.explanation}</p>}
-                      {feedback?.microStrategyTip && (
-                        <p className="mt-2 text-xs italic">
-                          {feedback.microStrategyTip}
-                        </p>
-                      )}
-                    </AlertDescription>
-                  </Alert>
-                )}
+                    
+                    <button onClick={() => router.push('/')} className="mt-8 w-full text-slate-400 hover:text-slate-600 text-[10px] font-bold uppercase tracking-widest transition-colors py-2">
+                        Abandonar Sesión
+                    </button>
+                </div>
+            )}
 
-                {hint && (
-                  <Alert variant="default" className="border-blue-600/50 bg-blue-50 text-blue-900">
-                    <Lightbulb className="h-4 w-4 text-blue-600" />
-                    <AlertTitle className="text-blue-800">Hint</AlertTitle>
-                    <AlertDescription>{hint.hint}</AlertDescription>
-                  </Alert>
-                )}
-              </>
+            {screen === 'result' && (
+                <div id="result-screen" className="text-center py-6">
+                    <div className="text-7xl mb-6 animate-bounce">
+                        {wasCompleted ? (correctCount >= 18 ? '🚀' : '👏') : '⏰'}
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">
+                        {wasCompleted ? (correctCount >= 18 ? '¡Eres un Genio!' : '¡Bien Hecho!') : '¡Tiempo Agotado!'}
+                    </h2>
+                    <p className="text-slate-500 mb-10 leading-relaxed max-w-[280px] mx-auto text-sm">
+                        {wasCompleted ? 
+                            (correctCount >= 18 ? '¡Impresionante velocidad y precisión! Has dominado los números difíciles.' : 'Has completado la prueba. Intenta mejorar tu precisión en la próxima ronda.') :
+                            'Has sido rápido, pero el reloj ganó esta vez. ¡Vuelve a intentarlo!'
+                        }
+                    </p>
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">TIEMPO FINAL</p>
+                            <p className="text-2xl font-black text-indigo-600 tabular-nums">{finalTime.toFixed(1)}s</p>
+                        </div>
+                        <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">ACIERTOS</p>
+                            <p className="text-2xl font-black text-indigo-600 tabular-nums">{correctCount} / {totalQuestions}</p>
+                        </div>
+                    </div>
+                    <button onClick={() => router.push('/')} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all active:scale-95">
+                        Volver al Menú
+                    </button>
+                </div>
             )}
-          </CardContent>
-          <CardFooter className="flex flex-col items-center justify-center gap-4">
-            {isCorrect === null ? (
-              <div className="flex flex-wrap items-center justify-center gap-4">
-                <Button
-                  onClick={handleCheckAnswer}
-                  disabled={isChecking || !userAnswer}
-                >
-                  {isChecking
-                    ? t('practice.checking')
-                    : t('practice.checkAnswer')}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={handleGetHint}
-                  disabled={isHintLoading || hintLevel > 3}
-                >
-                  <Lightbulb className="mr-2 h-4 w-4" /> {t('practice.showHint')}
-                </Button>
-              </div>
-            ) : (
-              <Button onClick={getNewProblem}>{t('practice.nextQuestion')}</Button>
-            )}
-          </CardFooter>
-        </Card>
-      </main>
+        </div>
     </div>
   );
 }

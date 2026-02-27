@@ -1,100 +1,124 @@
 'use client';
 
-import { Award, BookOpen, Sparkles } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useLanguage } from '@/context/language-context';
+import { useState, useEffect } from 'react';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged, type Auth } from 'firebase/auth';
+import { getFirestore, doc, onSnapshot, type Firestore } from 'firebase/firestore';
 
-const features = [
-  {
-    icon: <Sparkles className="h-10 w-10 text-primary" />,
-    titleKey: 'home.feature1Title',
-    descriptionKey: 'home.feature1Description',
-  },
-  {
-    icon: <BookOpen className="h-10 w-10 text-primary" />,
-    titleKey: 'home.feature2Title',
-    descriptionKey: 'home.feature2Description',
-  },
-  {
-    icon: <Award className="h-10 w-10 text-primary" />,
-    titleKey: 'home.feature3Title',
-    descriptionKey: 'home.feature3Description',
-  },
-];
+// NOTE: Add your Firebase config here
+const firebaseConfig = {
+  // apiKey: "...",
+  // authDomain: "...",
+  // projectId: "...",
+};
+
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (e) {
+  console.warn("Firebase no configurado. La persistencia de datos no funcionará.");
+}
+
+const CategoryButton = ({
+  href,
+  title,
+  time,
+  focus,
+}: {
+  href: string;
+  title: string;
+  time: string;
+  focus: string;
+}) => (
+  <Link
+    href={href}
+    className="w-full p-4 bg-white border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/50 rounded-2xl flex items-center justify-between group transition-all shadow-sm hover:shadow-md"
+  >
+    <div className="text-left">
+      <span className="block font-bold text-slate-700 text-lg">{title}</span>
+      <span className="text-xs text-slate-400 font-medium bg-slate-100 px-2 py-0.5 rounded text-[10px]">{time}</span>
+      <span className="text-xs text-indigo-500 block mt-1">{focus}</span>
+    </div>
+    <span className="text-slate-300 group-hover:text-indigo-500 text-2xl transition-colors">→</span>
+  </Link>
+);
 
 export default function Home() {
-  const { t } = useLanguage();
-  const heroImage = PlaceHolderImages.find((img) => img.id === 'retomates-hero');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [bestTime, setBestTime] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!auth) return;
+    signInAnonymously(auth).catch((error) => {
+      console.error("Error en auth anónimo:", error);
+    });
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!db || !userId) return;
+    const docPath = `artifacts/math-master-hard-numbers/users/${userId}/stats/main`;
+    const unsubscribeDb = onSnapshot(doc(db, docPath), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setBestTime(data.bestTime || null);
+      }
+    });
+    return () => unsubscribeDb();
+  }, [userId]);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48">
-          <div className="container px-4 md:px-6">
-            <div className="grid gap-6 lg:grid-cols-[1fr_550px] lg:gap-12 xl:grid-cols-[1fr_650px]">
-              <div className="flex flex-col justify-center space-y-4">
-                <div className="space-y-4">
-                  <h1 className="font-headline text-4xl font-bold tracking-tighter text-primary sm:text-5xl xl:text-6xl/none">
-                    {t('home.title')}
-                  </h1>
-                  <p className="max-w-[600px] text-foreground/80 md:text-xl">
-                    {t('home.subtitle')}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                  <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
-                    <Link href="/dashboard">{t('home.getStarted')}</Link>
-                  </Button>
-                </div>
-              </div>
-              {heroImage && (
-                <Image
-                  src={heroImage.imageUrl}
-                  alt={heroImage.description}
-                  data-ai-hint={heroImage.imageHint}
-                  width={650}
-                  height={433}
-                  className="mx-auto aspect-[3/2] overflow-hidden rounded-xl object-cover sm:w-full"
-                />
-              )}
-            </div>
+    <div id="app" className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-slate-100 relative">
+      <div className="bg-indigo-600 p-6 text-white transition-colors duration-500 relative overflow-hidden" id="header-bg">
+        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+        <div className="flex justify-between items-center mb-6 relative z-10">
+          <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+            <span>MathMaster 20</span>
+          </h1>
+          <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
+            <span className="text-[10px] font-mono opacity-90" id="user-id-display">
+              {userId ? `ID: ${userId.slice(0, 6)}` : 'Conectando...'}
+            </span>
           </div>
-        </section>
-        <section id="features" className="w-full bg-secondary/50 py-12 md:py-24 lg:py-32">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h2 className="font-headline text-3xl font-bold tracking-tighter sm:text-5xl">
-                  {t('home.featuresTitle')}
-                </h2>
-                <p className="max-w-[900px] text-foreground/80 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                  {t('home.featuresSubtitle')}
-                </p>
-              </div>
-            </div>
-            <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 lg:max-w-none mt-12">
-              {features.map((feature) => (
-                <Card key={feature.titleKey} className="shadow-lg">
-                  <CardHeader className="flex flex-col items-center text-center gap-4">
-                    {feature.icon}
-                    <CardTitle className="font-headline text-2xl">{t(feature.titleKey)}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-center text-foreground/80">
-                    {t(feature.descriptionKey)}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 relative z-10">
+          <div className="text-center bg-indigo-700/50 backdrop-blur-md p-3 rounded-2xl border border-indigo-500/30">
+            <p className="text-indigo-200 text-[9px] uppercase font-bold tracking-widest mb-1">ACIERTOS</p>
+            <p id="score" className="text-2xl font-black tabular-nums">0 / 20</p>
           </div>
-        </section>
-      </main>
-      <footer className="flex items-center justify-center py-6">
-        <p className="text-sm text-muted-foreground">{t('home.footer')}</p>
-      </footer>
+          <div className="text-center bg-indigo-700/50 backdrop-blur-md p-3 rounded-2xl border border-indigo-500/30">
+            <p className="text-indigo-200 text-[9px] uppercase font-bold tracking-widest mb-1">MEJOR TIEMPO</p>
+            <p id="best-time" className="text-2xl font-black tabular-nums">
+              {bestTime ? `${bestTime.toFixed(1)}s` : '--:--'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div id="screen-container" className="p-6">
+        <div id="menu-screen" className="space-y-4 py-2">
+          <div className="text-center mb-8">
+            <span className="text-4xl block mb-2">🧠</span>
+            <h2 className="text-2xl font-bold text-slate-800">Entrenamiento Mental</h2>
+            <p className="text-slate-500 text-sm mt-1">Supera las 20 preguntas antes de que se agote el tiempo.</p>
+          </div>
+          <CategoryButton href="/practice/multiplication" title="Multiplicación" time="2:00 MIN" focus="Enfoque: Tablas 6, 7, 8, 9" />
+          <CategoryButton href="/practice/addition" title="Sumas" time="1:30 MIN" focus="Enfoque: Llevadas difíciles" />
+          <CategoryButton href="/practice/divisibility" title="Divisibilidad" time="1:30 MIN" focus="Enfoque: Reglas del 3 y 9" />
+        </div>
+      </div>
     </div>
   );
 }
