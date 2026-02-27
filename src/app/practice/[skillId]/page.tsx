@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Script from 'next/script';
 import type { Category, Problem } from '@/lib/types';
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth } from 'firebase/auth';
@@ -137,8 +138,8 @@ export default function PracticeSessionPage() {
   const [wasCompleted, setWasCompleted] = useState(false);
 
   // Audio
-  const toneModule = useRef<any | null>(null);
   const synth = useRef<any | null>(null);
+  const toneReady = useRef(false);
   
   // Firebase
   const [userId, setUserId] = useState<string | null>(null);
@@ -185,12 +186,10 @@ export default function PracticeSessionPage() {
     
     // Init Audio
     const initAudio = async () => {
-        if (toneModule.current === null) {
-            toneModule.current = await import('tone');
+        if (toneReady.current) {
+            // @ts-ignore
+            await window.Tone.start();
         }
-        const Tone = toneModule.current;
-        await Tone.start();
-        synth.current = new Tone.PolySynth(Tone.Synth).toDestination();
     }
     initAudio();
 
@@ -212,8 +211,9 @@ export default function PracticeSessionPage() {
       setScreen('result');
 
       if (completed && correctCount >= 18) {
-          if (toneModule.current && synth.current) {
-            const Tone = toneModule.current;
+          if (toneReady.current && synth.current) {
+            // @ts-ignore
+            const Tone = window.Tone;
             const now = Tone.now();
             synth.current?.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n", now);
             synth.current?.triggerAttackRelease(["E4", "G4", "C5", "E5"], "4n", now + 0.2);
@@ -226,7 +226,7 @@ export default function PracticeSessionPage() {
               });
           }
       }
-  }, [correctCount, bestTime, userId]);
+  }, [correctCount, bestTime, userId, db]);
 
 
   useEffect(() => {
@@ -243,9 +243,9 @@ export default function PracticeSessionPage() {
     
     if (isCorrect) {
       setCorrectCount(prev => prev + 1);
-      synth.current?.triggerAttackRelease(["C5", "E5"], "16n");
+      if(toneReady.current) synth.current?.triggerAttackRelease(["C5", "E5"], "16n");
     } else {
-      synth.current?.triggerAttackRelease("G2", "8n");
+      if(toneReady.current) synth.current?.triggerAttackRelease("G2", "8n");
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 300);
     }
@@ -271,111 +271,126 @@ export default function PracticeSessionPage() {
   const timeBarPercent = (timeLeft / maxTime) * 100;
   
   return (
-    <div id="app" className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-slate-100 relative">
-        <div className={`bg-indigo-600 p-6 text-white transition-colors duration-500 relative overflow-hidden`} id="header-bg">
-            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
-            <div className="flex justify-between items-center mb-6 relative z-10">
-                <h1 className="text-xl font-bold tracking-tight">{category.charAt(0).toUpperCase() + category.slice(1)}</h1>
+    <>
+        <Script 
+            id="tone-js"
+            src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"
+            strategy="lazyOnload"
+            onReady={() => {
+                // @ts-ignore
+                if (window.Tone) {
+                    // @ts-ignore
+                    const Tone = window.Tone;
+                    synth.current = new Tone.PolySynth(Tone.Synth).toDestination();
+                    toneReady.current = true;
+                }
+            }}
+        />
+        <div id="app" className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-slate-100 relative">
+            <div className={`bg-indigo-600 p-6 text-white transition-colors duration-500 relative overflow-hidden`} id="header-bg">
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+                <div className="flex justify-between items-center mb-6 relative z-10">
+                    <h1 className="text-xl font-bold tracking-tight">{category.charAt(0).toUpperCase() + category.slice(1)}</h1>
+                </div>
+                <div className="grid grid-cols-2 gap-3 relative z-10">
+                    <div className="text-center bg-indigo-700/50 backdrop-blur-md p-3 rounded-2xl border border-indigo-500/30">
+                        <p className="text-indigo-200 text-[9px] uppercase font-bold tracking-widest mb-1">ACIERTOS</p>
+                        <p id="score" className="text-2xl font-black tabular-nums">{correctCount} / {totalQuestions}</p>
+                    </div>
+                    <div className="text-center bg-indigo-700/50 backdrop-blur-md p-3 rounded-2xl border border-indigo-500/30">
+                        <p className="text-indigo-200 text-[9px] uppercase font-bold tracking-widest mb-1">MEJOR TIEMPO</p>
+                        <p id="best-time" className="text-2xl font-black tabular-nums">{bestTime ? `${bestTime.toFixed(1)}s` : '--:--'}</p>
+                    </div>
+                </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 relative z-10">
-                <div className="text-center bg-indigo-700/50 backdrop-blur-md p-3 rounded-2xl border border-indigo-500/30">
-                    <p className="text-indigo-200 text-[9px] uppercase font-bold tracking-widest mb-1">ACIERTOS</p>
-                    <p id="score" className="text-2xl font-black tabular-nums">{correctCount} / {totalQuestions}</p>
-                </div>
-                <div className="text-center bg-indigo-700/50 backdrop-blur-md p-3 rounded-2xl border border-indigo-500/30">
-                    <p className="text-indigo-200 text-[9px] uppercase font-bold tracking-widest mb-1">MEJOR TIEMPO</p>
-                    <p id="best-time" className="text-2xl font-black tabular-nums">{bestTime ? `${bestTime.toFixed(1)}s` : '--:--'}</p>
-                </div>
+
+            <div id="screen-container" className="p-6">
+                {screen === 'game' && (
+                    <div id="game-screen">
+                        <div className="flex flex-col items-center mb-8">
+                            <div className="w-full bg-slate-100 h-2.5 rounded-full mb-3 overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-1000 ease-linear ${timeLeft <=10 ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${timeBarPercent}%` }}></div>
+                            </div>
+                            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
+                                <span className="text-lg">⏱</span>
+                                <span className={`font-mono font-bold text-xl tabular-nums ${timeLeft <= 10 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}>{timeLeft}</span>
+                            </div>
+                        </div>
+
+                        <div className="text-center mb-8 min-h-[140px] flex flex-col justify-center">
+                            <div
+                                id="problem-text"
+                                className={`text-6xl font-black text-slate-800 tracking-tight leading-none mb-2 transition-all animate-pop ${isShaking ? 'animate-shake': ''}`}
+                                dangerouslySetInnerHTML={{ __html: currentProblem.text }}
+                            ></div>
+                            <p id="progress-text" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">PREGUNTA {questionIndex + 1} DE {totalQuestions}</p>
+                        </div>
+                        
+                        <div id="choice-container" className={`grid gap-3 mb-6 ${category === 'divisibility' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                            {options.map((opt, i) => {
+                                const isBool = typeof opt === 'boolean';
+                                return (
+                                    <button
+                                        key={i}
+                                        onClick={() => handleChoice(opt)}
+                                        className={`choice-btn w-full p-4 rounded-xl font-bold text-xl shadow-sm border-2 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none ${
+                                            isBool
+                                            ? opt
+                                                ? "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 py-6 text-2xl"
+                                                : "bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100 hover:border-rose-200 py-6 text-2xl"
+                                            : "bg-white text-slate-600 border-slate-100 hover:border-indigo-500 hover:text-indigo-600 hover:shadow-md"
+                                        }`}
+                                        disabled={!!feedback}
+                                    >
+                                        {isBool ? (opt ? 'SÍ' : 'NO') : opt}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        
+                        {feedback && (
+                          <div className={`text-center h-6 font-bold text-sm tracking-wide transition-all opacity-100 transform-none ${feedback.correct ? 'text-emerald-500' : 'text-rose-500'}`}>
+                              {feedback.text}
+                          </div>
+                        )}
+                        
+                        <button onClick={() => router.push('/')} className="mt-8 w-full text-slate-400 hover:text-slate-600 text-[10px] font-bold uppercase tracking-widest transition-colors py-2">
+                            Abandonar Sesión
+                        </button>
+                    </div>
+                )}
+
+                {screen === 'result' && (
+                    <div id="result-screen" className="text-center py-6">
+                        <div className="text-7xl mb-6 animate-bounce">
+                            {wasCompleted ? (correctCount >= 18 ? '🚀' : '👏') : '⏰'}
+                        </div>
+                        <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">
+                            {wasCompleted ? (correctCount >= 18 ? '¡Eres un Genio!' : '¡Bien Hecho!') : '¡Tiempo Agotado!'}
+                        </h2>
+                        <p className="text-slate-500 mb-10 leading-relaxed max-w-[280px] mx-auto text-sm">
+                            {wasCompleted ? 
+                                (correctCount >= 18 ? '¡Impresionante velocidad y precisión! Has dominado los números difíciles.' : 'Has completado la prueba. Intenta mejorar tu precisión en la próxima ronda.') :
+                                'Has sido rápido, pero el reloj ganó esta vez. ¡Vuelve a intentarlo!'
+                            }
+                        </p>
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                            <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">TIEMPO FINAL</p>
+                                <p className="text-2xl font-black text-indigo-600 tabular-nums">{finalTime.toFixed(1)}s</p>
+                            </div>
+                            <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">ACIERTOS</p>
+                                <p className="text-2xl font-black text-indigo-600 tabular-nums">{correctCount} / {totalQuestions}</p>
+                            </div>
+                        </div>
+                        <button onClick={() => router.push('/')} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all active:scale-95">
+                            Volver al Menú
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
-
-        <div id="screen-container" className="p-6">
-            {screen === 'game' && (
-                <div id="game-screen">
-                    <div className="flex flex-col items-center mb-8">
-                        <div className="w-full bg-slate-100 h-2.5 rounded-full mb-3 overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-1000 ease-linear ${timeLeft <=10 ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${timeBarPercent}%` }}></div>
-                        </div>
-                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
-                            <span className="text-lg">⏱</span>
-                            <span className={`font-mono font-bold text-xl tabular-nums ${timeLeft <= 10 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}>{timeLeft}</span>
-                        </div>
-                    </div>
-
-                    <div className="text-center mb-8 min-h-[140px] flex flex-col justify-center">
-                        <div
-                            id="problem-text"
-                            className={`text-6xl font-black text-slate-800 tracking-tight leading-none mb-2 transition-all animate-pop ${isShaking ? 'animate-shake': ''}`}
-                            dangerouslySetInnerHTML={{ __html: currentProblem.text }}
-                        ></div>
-                        <p id="progress-text" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">PREGUNTA {questionIndex + 1} DE {totalQuestions}</p>
-                    </div>
-                    
-                    <div id="choice-container" className={`grid gap-3 mb-6 ${category === 'divisibility' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                        {options.map((opt, i) => {
-                            const isBool = typeof opt === 'boolean';
-                            return (
-                                <button
-                                    key={i}
-                                    onClick={() => handleChoice(opt)}
-                                    className={`choice-btn w-full p-4 rounded-xl font-bold text-xl shadow-sm border-2 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none ${
-                                        isBool
-                                        ? opt
-                                            ? "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 py-6 text-2xl"
-                                            : "bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100 hover:border-rose-200 py-6 text-2xl"
-                                        : "bg-white text-slate-600 border-slate-100 hover:border-indigo-500 hover:text-indigo-600 hover:shadow-md"
-                                    }`}
-                                    disabled={!!feedback}
-                                >
-                                    {isBool ? (opt ? 'SÍ' : 'NO') : opt}
-                                </button>
-                            );
-                        })}
-                    </div>
-                    
-                    {feedback && (
-                      <div className={`text-center h-6 font-bold text-sm tracking-wide transition-all opacity-100 transform-none ${feedback.correct ? 'text-emerald-500' : 'text-rose-500'}`}>
-                          {feedback.text}
-                      </div>
-                    )}
-                    
-                    <button onClick={() => router.push('/')} className="mt-8 w-full text-slate-400 hover:text-slate-600 text-[10px] font-bold uppercase tracking-widest transition-colors py-2">
-                        Abandonar Sesión
-                    </button>
-                </div>
-            )}
-
-            {screen === 'result' && (
-                <div id="result-screen" className="text-center py-6">
-                    <div className="text-7xl mb-6 animate-bounce">
-                        {wasCompleted ? (correctCount >= 18 ? '🚀' : '👏') : '⏰'}
-                    </div>
-                    <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">
-                        {wasCompleted ? (correctCount >= 18 ? '¡Eres un Genio!' : '¡Bien Hecho!') : '¡Tiempo Agotado!'}
-                    </h2>
-                    <p className="text-slate-500 mb-10 leading-relaxed max-w-[280px] mx-auto text-sm">
-                        {wasCompleted ? 
-                            (correctCount >= 18 ? '¡Impresionante velocidad y precisión! Has dominado los números difíciles.' : 'Has completado la prueba. Intenta mejorar tu precisión en la próxima ronda.') :
-                            'Has sido rápido, pero el reloj ganó esta vez. ¡Vuelve a intentarlo!'
-                        }
-                    </p>
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                        <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
-                            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">TIEMPO FINAL</p>
-                            <p className="text-2xl font-black text-indigo-600 tabular-nums">{finalTime.toFixed(1)}s</p>
-                        </div>
-                        <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
-                            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">ACIERTOS</p>
-                            <p className="text-2xl font-black text-indigo-600 tabular-nums">{correctCount} / {totalQuestions}</p>
-                        </div>
-                    </div>
-                    <button onClick={() => router.push('/')} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all active:scale-95">
-                        Volver al Menú
-                    </button>
-                </div>
-            )}
-        </div>
-    </div>
+    </>
   );
 }
-    
