@@ -37,6 +37,7 @@ export default function PracticeSessionPage({
 }: {
   params: { skillId: Skill['id'] };
 }) {
+  const { skillId } = params;
   const { t } = useLanguage();
   const { toast } = useToast();
 
@@ -54,8 +55,8 @@ export default function PracticeSessionPage({
   const [isHintLoading, setIsHintLoading] = useState(false);
 
   const skill = useMemo(
-    () => mockSkills.find((s) => s.id === params.skillId),
-    [params.skillId]
+    () => mockSkills.find((s) => s.id === skillId),
+    [skillId]
   );
 
   const getNewProblem = async () => {
