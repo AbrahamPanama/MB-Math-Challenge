@@ -33,11 +33,10 @@ import { useToast } from '@/hooks/use-toast';
 import type { Skill } from '@/lib/types';
 
 export default function PracticeSessionPage({
-  params,
+  params: { skillId },
 }: {
   params: { skillId: Skill['id'] };
 }) {
-  const { skillId } = params;
   const { t } = useLanguage();
   const { toast } = useToast();
 
