@@ -14,26 +14,26 @@ export const mockUser: User = {
 export const mockSkills: Skill[] = [
   {
     id: 'multiplication',
-    name: 'Multiplication Tables',
-    description: 'Facts, missing factors, and more.',
+    nameKey: 'skillsData.multiplication.name',
+    descriptionKey: 'skillsData.multiplication.description',
     mastery: { stars: 2, progress: 75 },
   },
   {
     id: 'addition_subtraction',
-    name: 'Two-Digit +/-',
-    description: 'Practice with and without carrying.',
+    nameKey: 'skillsData.addition_subtraction.name',
+    descriptionKey: 'skillsData.addition_subtraction.description',
     mastery: { stars: 3, progress: 100 },
   },
   {
     id: 'fractions',
-    name: 'Fractions',
-    description: 'Equivalence, simplifying, and operations.',
+    nameKey: 'skillsData.fractions.name',
+    descriptionKey: 'skillsData.fractions.description',
     mastery: { stars: 1, progress: 40 },
   },
   {
     id: 'divisibility',
-    name: 'Divisibility Rules',
-    description: 'Learn the rules for 2, 3, 5, and more.',
+    nameKey: 'skillsData.divisibility.name',
+    descriptionKey: 'skillsData.divisibility.description',
     mastery: { stars: 0, progress: 15 },
   },
 ];
@@ -56,22 +56,22 @@ export const mockUserProgress: UserProgress = {
 export const practiceModes: PracticeMode[] = [
     {
         id: 'smart-practice',
-        title: 'Smart Practice',
-        description: 'Adaptive challenges in a skill of your choice.',
+        titleKey: 'practiceModes.smartPractice.title',
+        descriptionKey: 'practiceModes.smartPractice.description',
         icon: Sparkles,
         href: '/practice'
     },
     {
         id: 'daily-mission',
-        title: 'Daily Mission',
-        description: 'A quick mix of skills to keep your mind sharp.',
+        titleKey: 'practiceModes.dailyMission.title',
+        descriptionKey: 'practiceModes.dailyMission.description',
         icon: CalendarCheck,
         href: '/practice'
     },
     {
         id: 'unit-boss',
-        title: 'Unit Boss',
-        description: 'Prove your mastery and earn the final star!',
+        titleKey: 'practiceModes.unitBoss.title',
+        descriptionKey: 'practiceModes.unitBoss.description',
         icon: ShieldCheck,
         href: '/practice'
     }

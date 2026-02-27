@@ -1,3 +1,5 @@
+'use client';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,16 +12,35 @@ import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { mockUser } from '@/lib/data';
-import { LogOut, User, Users } from 'lucide-react';
+import { Globe, LogOut, User, Users } from 'lucide-react';
+import { useLanguage } from '@/context/language-context';
 
 export function Header({ title }: { title: string }) {
+  const { setLanguage, t } = useLanguage();
+
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
       <div className="md:hidden">
         <SidebarTrigger />
       </div>
       <h1 className="text-lg font-semibold md:text-xl">{title}</h1>
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+              <Globe className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-40" align="end" forceMount>
+            <DropdownMenuItem onSelect={() => setLanguage('en')}>
+              English
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setLanguage('es')}>
+              Español
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -41,16 +62,16 @@ export function Header({ title }: { title: string }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
+              <span>{t('header.profile')}</span>
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Users className="mr-2 h-4 w-4" />
-              <span>Switch Profile</span>
+              <span>{t('header.switchProfile')}</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
+              <span>{t('header.logout')}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

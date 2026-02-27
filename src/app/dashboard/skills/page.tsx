@@ -1,3 +1,5 @@
+'use client';
+
 import { Star, ArrowRight } from 'lucide-react';
 import {
   Card,
@@ -12,6 +14,7 @@ import { mockSkills } from '@/lib/data';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useLanguage } from '@/context/language-context';
 
 function MasteryStars({ count }: { count: number }) {
   return (
@@ -29,30 +32,32 @@ function MasteryStars({ count }: { count: number }) {
 }
 
 export default function SkillsPage() {
+  const { t } = useLanguage();
+
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <Header title="Skill Map" />
+      <Header title={t('skills.title')} />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {mockSkills.map((skill) => (
             <Card key={skill.id} className="flex flex-col shadow-md hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="font-headline text-xl">{skill.name}</CardTitle>
+                  <CardTitle className="font-headline text-xl">{t(skill.nameKey)}</CardTitle>
                   <MasteryStars count={skill.mastery.stars} />
                 </div>
-                <CardDescription>{skill.description}</CardDescription>
+                <CardDescription>{t(skill.descriptionKey)}</CardDescription>
               </CardHeader>
               <CardContent className="flex-grow">
                 <Progress value={skill.mastery.progress} />
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {skill.mastery.progress}% Mastered
+                  {t('skills.mastered', { progress: skill.mastery.progress })}
                 </p>
               </CardContent>
               <CardFooter>
                  <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
                   <Link href="/practice">
-                    Practice Now <ArrowRight className="ml-2 h-4 w-4" />
+                    {t('skills.practiceNow')} <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
               </CardFooter>

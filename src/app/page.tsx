@@ -1,32 +1,33 @@
+'use client';
+
 import { Award, BookOpen, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useLanguage } from '@/context/language-context';
 
 const features = [
   {
     icon: <Sparkles className="h-10 w-10 text-primary" />,
-    title: 'Adaptive Learning',
-    description:
-      'Problems adjust to your level, keeping you challenged but not overwhelmed.',
+    titleKey: 'home.feature1Title',
+    descriptionKey: 'home.feature1Description',
   },
   {
     icon: <BookOpen className="h-10 w-10 text-primary" />,
-    title: 'Engaging Content',
-    description:
-      'Master core skills with fun challenges and immediate, helpful feedback.',
+    titleKey: 'home.feature2Title',
+    descriptionKey: 'home.feature2Description',
   },
   {
     icon: <Award className="h-10 w-10 text-primary" />,
-    title: 'Track Your Progress',
-    description:
-      'Watch your skills grow, earn stars for mastery, and build your streak.',
+    titleKey: 'home.feature3Title',
+    descriptionKey: 'home.feature3Description',
   },
 ];
 
 export default function Home() {
+  const { t } = useLanguage();
   const heroImage = PlaceHolderImages.find((img) => img.id === 'retomates-hero');
 
   return (
@@ -38,17 +39,15 @@ export default function Home() {
               <div className="flex flex-col justify-center space-y-4">
                 <div className="space-y-4">
                   <h1 className="font-headline text-4xl font-bold tracking-tighter text-primary sm:text-5xl xl:text-6xl/none">
-                    Welcome to RetoMates
+                    {t('home.title')}
                   </h1>
                   <p className="max-w-[600px] text-foreground/80 md:text-xl">
-                    Your personal math challenge partner. Master arithmetic
-                    with fun, adaptive practice designed to build confidence and
-                    skills.
+                    {t('home.subtitle')}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
                   <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
-                    <Link href="/dashboard">Get Started</Link>
+                    <Link href="/dashboard">{t('home.getStarted')}</Link>
                   </Button>
                 </div>
               </div>
@@ -70,23 +69,22 @@ export default function Home() {
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">
                 <h2 className="font-headline text-3xl font-bold tracking-tighter sm:text-5xl">
-                  Unlock Your Math Superpowers
+                  {t('home.featuresTitle')}
                 </h2>
                 <p className="max-w-[900px] text-foreground/80 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                  RetoMates is built on proven learning principles to help you
-                  succeed.
+                  {t('home.featuresSubtitle')}
                 </p>
               </div>
             </div>
             <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 lg:max-w-none mt-12">
               {features.map((feature) => (
-                <Card key={feature.title} className="shadow-lg">
+                <Card key={feature.titleKey} className="shadow-lg">
                   <CardHeader className="flex flex-col items-center text-center gap-4">
                     {feature.icon}
-                    <CardTitle className="font-headline text-2xl">{feature.title}</CardTitle>
+                    <CardTitle className="font-headline text-2xl">{t(feature.titleKey)}</CardTitle>
                   </CardHeader>
                   <CardContent className="text-center text-foreground/80">
-                    {feature.description}
+                    {t(feature.descriptionKey)}
                   </CardContent>
                 </Card>
               ))}
@@ -95,7 +93,7 @@ export default function Home() {
         </section>
       </main>
       <footer className="flex items-center justify-center py-6">
-        <p className="text-sm text-muted-foreground">© 2024 RetoMates. All rights reserved.</p>
+        <p className="text-sm text-muted-foreground">{t('home.footer')}</p>
       </footer>
     </div>
   );

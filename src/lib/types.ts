@@ -11,8 +11,8 @@ export type SkillMastery = {
 
 export type Skill = {
   id: 'multiplication' | 'addition_subtraction' | 'fractions' | 'divisibility';
-  name: string;
-  description: string;
+  nameKey: string;
+  descriptionKey: string;
   mastery: SkillMastery;
 };
 
@@ -25,8 +25,8 @@ export type UserProgress = {
 
 export type PracticeMode = {
   id: 'smart-practice' | 'daily-mission' | 'unit-boss';
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   icon: React.ElementType;
   href: string;
 };

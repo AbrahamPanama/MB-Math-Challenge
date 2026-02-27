@@ -17,15 +17,17 @@ import { cn } from '@/lib/utils';
 import { mockUser } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
-
-const links = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/skills', label: 'Skill Map', icon: Target },
-  { href: '/dashboard/progress', label: 'Progress', icon: LineChart },
-];
+import { useLanguage } from '@/context/language-context';
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { t } = useLanguage();
+
+  const links = [
+    { href: '/dashboard', label: t('sidebar.dashboard'), icon: LayoutDashboard },
+    { href: '/dashboard/skills', label: t('sidebar.skillMap'), icon: Target },
+    { href: '/dashboard/progress', label: t('sidebar.progress'), icon: LineChart },
+  ];
 
   return (
     <Sidebar>
@@ -69,7 +71,7 @@ export function SidebarNav() {
             </Avatar>
             <div className="flex flex-col">
               <span className="text-sm font-semibold">{mockUser.name}</span>
-              <span className="text-xs text-muted-foreground">Student</span>
+              <span className="text-xs text-muted-foreground">{t('sidebar.student')}</span>
             </div>
           </div>
       </SidebarFooter>
