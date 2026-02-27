@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { LanguageProvider } from '@/context/language-context';
 
 export const metadata: Metadata = {
   title: 'MathMaster 20 - Edición Oficial',
@@ -22,7 +23,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased bg-slate-50 min-h-screen flex items-center justify-center p-4 selection:bg-indigo-100">
-          {children}
+        <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
   );
